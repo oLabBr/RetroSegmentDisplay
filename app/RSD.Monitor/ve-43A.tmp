@@ -1,0 +1,130 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Text;
+using System.Windows.Forms;
+using System.IO.Ports;
+using RSD.Monitor.Controller;
+using RSD.Monitor.Sensors;
+
+namespace RSD.Monitor
+{
+    public partial class Main : Form
+    {
+        private ControllerCommunicator comm;
+        private ISensorReader reader;
+
+        public Main()
+        {
+            InitializeComponent();
+            this.btnInit.Enabled = true;
+            this.btnStop.Enabled = false;
+
+            this.reader = new EverestSensorReader(); // MAKE CONFIGURABLE
+        }
+
+        private void Main_Load(object sender, EventArgs e)
+        {
+            this.cbPort.Items.Clear();
+            this.cbPort.Items.AddRange(SerialPort.GetPortNames());
+        }
+
+        private void btnInit_Click(object sender, EventArgs e)
+        {
+            comm = new ControllerCommunicator(this.cbPort.SelectedItem as String);
+            comm.Initializes();
+
+            this.btnInit.Enabled = false;
+            this.btnStop.Enabled = true;
+            this.tmUpdate.Enabled = true;
+            this.cbPort.Enabled = false;
+
+            this.Hide();
+        }
+
+        private void btnStop_Click(object sender, EventArgs e)
+        {
+            // = Clear
+            comm.Clear();
+
+            // =
+            comm.Stops();
+            this.btnInit.Enabled = true;
+            this.btnStop.Enabled = false;
+            this.tmUpdate.Enabled = false;
+            this.cbPort.Enabled = true;
+        }
+
+        private void tmUpdate_Tick(object sender, EventArgs e)
+        {
+            // Updates the Sensor Data
+            try
+            {
+                reader.Update();
+            }
+            catch (Exception exp)
+            {
+                
+            }
+
+            // Sends all Data to the Display Controller
+            if (this.comm.IsOpen())
+            {
+                this.comm.SetValue(1, reader.GetSensorValue(SensorId.MB_Temp));
+                this.comm.SetValue(2, reader.GetSensorValue(SensorId.HD1_Temp));
+                this.comm.SetValue(3, reader.GetSensorValue(SensorId.CPU_Voltage));
+            }
+
+            // Update the Status Label
+            this.UpdateStatus();
+        }
+
+        private void UpdateStatus()
+        {
+            if (this.comm.IsOpen())
+            {
+                this.lbConnectionStatus.Text = "OPEN "
+                    + (this.cbPort.SelectedItem as string)
+                    + " " + reader.GetSensorValue(SensorId.MB_Temp)
+                    + " " + reader.GetSensorValue(SensorId.HD1_Temp)
+                    + " " + reader.GetSensorValue(SensorId.CPU_Voltage);
+            }
+        }
+
+        private void menuOpenHide_Click(object sender, EventArgs e)
+        {
+            if (this.Visible)
+            {
+                this.Hide();
+            }
+            else
+            {
+                this.Show();
+            }
+        }
+
+        private void menuQuit_Click(object sender, EventArgs e)
+        {
+            if (this.comm.IsOpen())
+            {
+                this.btnStop_Click(null, null);
+            }
+
+            this.notifyIcon1.Visible = false;
+
+            Application.Exit();
+        }
+
+        private void ledSwitcher2_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void ledSwitcher1_Load(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
